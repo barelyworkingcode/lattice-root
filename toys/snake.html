@@ -1,0 +1,506 @@
+<!-- run: open toys/snake.html in a browser (e.g. `open toys/snake.html`) -->
+<!-- made-with: Claude Code (Opus 4.8) -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Snake</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: #121826;
+    --grid: #161d2e;
+    --grid-line: #1e273b;
+    --ink: #e6edf6;
+    --muted: #8a97ac;
+    --green: #34d399;
+    --green-glow: #10b981;
+    --red: #f4516c;
+    --red-glow: #e11d48;
+    --accent: #60a5fa;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background:
+      radial-gradient(1200px 600px at 50% -10%, #16203a 0%, var(--bg) 60%);
+    color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    padding: 24px;
+    min-height: 100%;
+  }
+  .title {
+    font-size: 13px;
+    letter-spacing: 0.42em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0;
+  }
+  .title b { color: var(--green); }
+
+  .hud {
+    width: min(92vw, 528px);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+    border: 1px solid var(--grid-line);
+    border-radius: 14px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+  .stat { display: flex; flex-direction: column; gap: 2px; }
+  .stat .label {
+    font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted);
+  }
+  .stat .value {
+    font-variant-numeric: tabular-nums;
+    font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    font-size: 22px; font-weight: 700; line-height: 1;
+  }
+  .stat.score .value { color: var(--green); }
+  .spacer { flex: 1; }
+
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 12px; border-radius: 999px;
+    font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
+    border: 1px solid var(--grid-line);
+    background: rgba(255,255,255,0.03);
+    color: var(--muted);
+  }
+  .status-pill .dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--muted);
+    box-shadow: 0 0 0 0 rgba(0,0,0,0);
+  }
+  .status-pill[data-state="RUNNING"] { color: var(--green); border-color: rgba(52,211,153,0.4); }
+  .status-pill[data-state="RUNNING"] .dot { background: var(--green); box-shadow: 0 0 10px var(--green-glow); }
+  .status-pill[data-state="PAUSED"] { color: var(--accent); border-color: rgba(96,165,250,0.4); }
+  .status-pill[data-state="PAUSED"] .dot { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+  .status-pill[data-state="GAMEOVER"] { color: var(--red); border-color: rgba(244,81,108,0.4); }
+  .status-pill[data-state="GAMEOVER"] .dot { background: var(--red); box-shadow: 0 0 10px var(--red-glow); }
+
+  button {
+    font: inherit; color: var(--ink); cursor: pointer;
+    border: 1px solid var(--grid-line);
+    background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+    padding: 8px 14px; border-radius: 10px; font-size: 13px; font-weight: 600;
+    transition: transform .08s ease, border-color .15s ease, background .15s ease;
+  }
+  button:hover { border-color: var(--accent); transform: translateY(-1px); }
+  button:active { transform: translateY(0); }
+
+  .stage {
+    position: relative;
+    width: min(92vw, 528px);
+    aspect-ratio: 1 / 1;
+  }
+  canvas {
+    width: 100%; height: 100%;
+    display: block;
+    border-radius: 16px;
+    border: 1px solid var(--grid-line);
+    background: var(--grid);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+
+  .overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; text-align: center; padding: 24px;
+    border-radius: 16px;
+    background: radial-gradient(600px 400px at 50% 40%, rgba(11,14,20,0.78), rgba(11,14,20,0.94));
+    backdrop-filter: blur(2px);
+    transition: opacity .2s ease;
+  }
+  .overlay.hidden { opacity: 0; pointer-events: none; }
+  .overlay h2 {
+    margin: 0; font-size: 34px; font-weight: 800; letter-spacing: -0.02em;
+  }
+  .overlay h2.ok { color: var(--green); text-shadow: 0 0 24px rgba(16,185,129,0.45); }
+  .overlay h2.dead { color: var(--red); text-shadow: 0 0 24px rgba(225,29,72,0.45); }
+  .overlay p { margin: 0; color: var(--muted); font-size: 14px; max-width: 32ch; line-height: 1.5; }
+  .overlay kbd {
+    font-family: ui-monospace, Menlo, monospace; font-size: 12px;
+    background: rgba(255,255,255,0.06); border: 1px solid var(--grid-line);
+    border-bottom-width: 2px; border-radius: 6px; padding: 2px 7px; color: var(--ink);
+  }
+  .final { font-size: 15px; color: var(--ink); }
+  .final b { color: var(--green); font-variant-numeric: tabular-nums; }
+
+  .legend {
+    display: flex; gap: 18px; color: var(--muted); font-size: 12px; align-items: center;
+  }
+  .legend .chip { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .swatch { width: 12px; height: 12px; border-radius: 4px; }
+  .legend .swatch.green { background: var(--green); box-shadow: 0 0 8px var(--green-glow); }
+  .legend .swatch.red { background: var(--red); box-shadow: 0 0 8px var(--red-glow); }
+</style>
+</head>
+<body>
+  <p class="title"><b>●</b>&nbsp; Snake</p>
+
+  <div class="hud">
+    <div class="stat score">
+      <span class="label">Score</span>
+      <span class="value" id="score">0</span>
+    </div>
+    <div class="stat">
+      <span class="label">Length</span>
+      <span class="value" id="length">3</span>
+    </div>
+    <div class="spacer"></div>
+    <div class="status-pill" id="statusPill" data-state="READY">
+      <span class="dot"></span><span id="statusText">Ready</span>
+    </div>
+    <button id="restartBtn" title="Restart (Enter)">Restart</button>
+  </div>
+
+  <div class="stage">
+    <canvas id="board" width="528" height="528"></canvas>
+    <div class="overlay" id="overlay">
+      <h2 id="ovTitle">Snake</h2>
+      <p id="ovBody"></p>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="chip"><span class="swatch green"></span> Green &mdash; grow +1, score +10</span>
+    <span class="chip"><span class="swatch red"></span> Red &mdash; halve length &amp; score</span>
+  </div>
+
+<script>
+/* ============================================================
+   Snake — single-file canvas game
+   made-with: Claude Code (Opus 4.8)
+   Key functions: initGame, updateGame, drawGame, spawnFood,
+   handleInput, checkCollisions, applyGreenFood, applyRedFood, gameOver
+   ============================================================ */
+
+const GRID = 22;          // cells per side
+const STEP = 110;         // ms per movement tick (stable timing)
+
+const canvas = document.getElementById('board');
+const ctx = canvas.getContext('2d');
+
+// HiDPI crispness: back the canvas with devicePixelRatio, draw in CSS pixels.
+const SIZE = canvas.width;            // logical pixel size (528)
+const CELL = SIZE / GRID;
+const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+canvas.width = SIZE * dpr;
+canvas.height = SIZE * dpr;
+ctx.scale(dpr, dpr);
+
+// --- Game state -------------------------------------------------
+let snake;          // array of {x,y}; head at index 0
+let dir;            // current committed direction
+let nextDir;        // queued direction (applied each tick)
+let greenFood;      // {x,y}
+let redFood;        // {x,y}
+let score;
+let status;         // 'READY' | 'RUNNING' | 'PAUSED' | 'GAMEOVER'
+
+// --- Setup ------------------------------------------------------
+function initGame() {
+  const cx = Math.floor(GRID / 2);
+  const cy = Math.floor(GRID / 2);
+  // 3-segment snake heading right
+  snake = [
+    { x: cx,     y: cy },
+    { x: cx - 1, y: cy },
+    { x: cx - 2, y: cy },
+  ];
+  dir = { x: 1, y: 0 };
+  nextDir = { x: 1, y: 0 };
+  score = 0;
+  greenFood = null;
+  redFood = null;
+  spawnFood('green');
+  spawnFood('red');
+}
+
+// Place a food on a random empty cell — never on the snake or the other food.
+function spawnFood(color) {
+  const taken = new Set(snake.map(s => s.x + ',' + s.y));
+  if (color === 'green' && redFood)   taken.add(redFood.x + ',' + redFood.y);
+  if (color === 'red'   && greenFood) taken.add(greenFood.x + ',' + greenFood.y);
+
+  const free = [];
+  for (let y = 0; y < GRID; y++)
+    for (let x = 0; x < GRID; x++)
+      if (!taken.has(x + ',' + y)) free.push({ x, y });
+
+  if (free.length === 0) return null;       // board full (effectively a win)
+  const cell = free[Math.floor(Math.random() * free.length)];
+  if (color === 'green') greenFood = cell; else redFood = cell;
+  return cell;
+}
+
+// --- Simulation -------------------------------------------------
+function updateGame() {
+  dir = nextDir;                            // commit the queued direction
+  const head = snake[0];
+  const newHead = { x: head.x + dir.x, y: head.y + dir.y };
+
+  const onGreen = greenFood && newHead.x === greenFood.x && newHead.y === greenFood.y;
+  const onRed   = redFood   && newHead.x === redFood.x   && newHead.y === redFood.y;
+
+  if (checkCollisions(newHead, onGreen)) { gameOver(); return; }
+
+  snake.unshift(newHead);
+  if (onGreen)      applyGreenFood();
+  else if (onRed)   applyRedFood();
+  else              snake.pop();            // normal move: tail follows
+}
+
+// Wall + self collision. When growing, the tail stays put, so it counts.
+function checkCollisions(p, willGrow) {
+  if (p.x < 0 || p.y < 0 || p.x >= GRID || p.y >= GRID) return true;   // wall
+  const body = willGrow ? snake : snake.slice(0, -1);                  // tail vacates
+  return body.some(s => s.x === p.x && s.y === p.y);                   // self
+}
+
+function applyGreenFood() {
+  // head already unshifted and tail not popped => net growth of 1
+  score += 10;
+  spawnFood('green');
+}
+
+function applyRedFood() {
+  // Halve length (min 1) and score (min 0). Safe even when very short.
+  const newLen = Math.max(1, Math.floor(snake.length / 2));
+  snake.length = newLen;                    // truncate, keeping the head
+  score = Math.max(0, Math.floor(score / 2));
+  spawnFood('red');
+}
+
+function gameOver() {
+  status = 'GAMEOVER';
+  syncUI();
+}
+
+// --- Input ------------------------------------------------------
+function dirFromKey(key) {
+  switch (key) {
+    case 'ArrowUp':    case 'w': case 'W': return { x: 0,  y: -1 };
+    case 'ArrowDown':  case 's': case 'S': return { x: 0,  y: 1  };
+    case 'ArrowLeft':  case 'a': case 'A': return { x: -1, y: 0  };
+    case 'ArrowRight': case 'd': case 'D': return { x: 1,  y: 0  };
+    default: return null;
+  }
+}
+
+function queueDir(d) {
+  // Block illegal 180-degree reversals against the current direction.
+  if (d.x === -dir.x && d.y === -dir.y) return;
+  nextDir = d;
+}
+
+function handleInput(e) {
+  const k = e.key;
+  if (k === ' ' || k === 'Spacebar' || k.startsWith('Arrow')) e.preventDefault();
+
+  if (k === ' ' || k === 'Spacebar') { onSpace(); return; }
+  if (k === 'Enter') { if (status === 'GAMEOVER') startGame(); return; }
+
+  const d = dirFromKey(k);
+  if (d && status === 'RUNNING') queueDir(d);
+}
+
+function onSpace() {
+  if (status === 'READY')        startGame();
+  else if (status === 'RUNNING') { status = 'PAUSED';  syncUI(); }
+  else if (status === 'PAUSED')  { status = 'RUNNING'; syncUI(); }
+  // GAMEOVER: Space is inert; Enter restarts.
+}
+
+function startGame() {
+  initGame();
+  status = 'RUNNING';
+  acc = 0;
+  syncUI();
+}
+
+// --- Rendering --------------------------------------------------
+function roundRectPath(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y,     x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x,     y + h, r);
+  ctx.arcTo(x,     y + h, x,     y,     r);
+  ctx.arcTo(x,     y,     x + w, y,     r);
+  ctx.closePath();
+}
+
+function drawGrid() {
+  ctx.clearRect(0, 0, SIZE, SIZE);
+  ctx.strokeStyle = 'rgba(255,255,255,0.035)';
+  ctx.lineWidth = 1;
+  for (let i = 1; i < GRID; i++) {
+    const p = Math.round(i * CELL) + 0.5;
+    ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, SIZE); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(SIZE, p); ctx.stroke();
+  }
+}
+
+function drawFood(cell, core, glow, t) {
+  if (!cell) return;
+  const pulse = 1 + 0.10 * Math.sin(t / 180);     // subtle breathing
+  const cxp = cell.x * CELL + CELL / 2;
+  const cyp = cell.y * CELL + CELL / 2;
+  const r = (CELL * 0.32) * pulse;
+  ctx.save();
+  ctx.shadowColor = glow;
+  ctx.shadowBlur = 18;
+  ctx.fillStyle = core;
+  ctx.beginPath();
+  ctx.arc(cxp, cyp, r, 0, Math.PI * 2);
+  ctx.fill();
+  // bright inner highlight
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.beginPath();
+  ctx.arc(cxp - r * 0.28, cyp - r * 0.28, r * 0.34, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawSnake() {
+  const n = snake.length;
+  for (let i = n - 1; i >= 0; i--) {
+    const s = snake[i];
+    const head = i === 0;
+    const inset = head ? 1.5 : 2.5;
+    const x = s.x * CELL + inset;
+    const y = s.y * CELL + inset;
+    const w = CELL - inset * 2;
+    const t = n > 1 ? i / (n - 1) : 0;            // 0 head .. 1 tail
+    // emerald gradient, fading slightly toward the tail
+    const light = Math.round(64 + 24 * (1 - t));
+    const fill = head ? '#5ff0b6' : `hsl(${158}, 64%, ${30 + 14 * (1 - t)}%)`;
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(16,185,129,0.55)';
+    ctx.shadowBlur = head ? 16 : 8;
+    ctx.fillStyle = fill;
+    roundRectPath(x, y, w, w, head ? 7 : 6);
+    ctx.fill();
+    ctx.restore();
+  }
+  drawEyes();
+}
+
+function drawEyes() {
+  const h = snake[0];
+  const cxp = h.x * CELL + CELL / 2;
+  const cyp = h.y * CELL + CELL / 2;
+  const off = CELL * 0.18;
+  const er = CELL * 0.09;
+  // perpendicular offset so eyes sit either side of travel direction
+  const px = -dir.y, py = dir.x;
+  const fwd = CELL * 0.10;
+  ctx.fillStyle = '#06231a';
+  for (const s of [1, -1]) {
+    const ex = cxp + dir.x * fwd + px * off * s;
+    const ey = cyp + dir.y * fwd + py * off * s;
+    ctx.beginPath();
+    ctx.arc(ex, ey, er, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawGame(t) {
+  drawGrid();
+  drawFood(greenFood, '#34d399', '#10b981', t);
+  drawFood(redFood,   '#f4516c', '#e11d48', t + 90);
+  drawSnake();
+}
+
+// --- UI sync (HUD + overlay) ------------------------------------
+const el = {
+  score:   document.getElementById('score'),
+  length:  document.getElementById('length'),
+  pill:    document.getElementById('statusPill'),
+  status:  document.getElementById('statusText'),
+  overlay: document.getElementById('overlay'),
+  ovTitle: document.getElementById('ovTitle'),
+  ovBody:  document.getElementById('ovBody'),
+};
+
+const STATUS_LABEL = { READY: 'Ready', RUNNING: 'Running', PAUSED: 'Paused', GAMEOVER: 'Game Over' };
+
+function syncUI() {
+  el.score.textContent = score;
+  el.length.textContent = snake.length;
+  el.pill.dataset.state = status;
+  el.status.textContent = STATUS_LABEL[status];
+
+  if (status === 'RUNNING') {
+    el.overlay.classList.add('hidden');
+    return;
+  }
+  el.overlay.classList.remove('hidden');
+  el.ovTitle.className = '';
+  if (status === 'READY') {
+    el.ovTitle.textContent = 'Snake';
+    el.ovTitle.classList.add('ok');
+    el.ovBody.innerHTML =
+      'Eat <span style="color:var(--green)">green</span>, dodge <span style="color:var(--red)">red</span>.<br>' +
+      'Move with <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>.<br>' +
+      'Press <kbd>Space</kbd> to start.';
+  } else if (status === 'PAUSED') {
+    el.ovTitle.textContent = 'Paused';
+    el.ovBody.innerHTML = 'Press <kbd>Space</kbd> to resume.';
+  } else if (status === 'GAMEOVER') {
+    el.ovTitle.textContent = 'Game Over';
+    el.ovTitle.classList.add('dead');
+    el.ovBody.innerHTML =
+      '<span class="final">Final score &mdash; <b>' + score + '</b></span><br>' +
+      'Press <kbd>Enter</kbd> or <em>Restart</em> to play again.';
+  }
+}
+
+// --- Main loop (stable timestep) --------------------------------
+let last = 0;
+let acc = 0;
+function loop(t) {
+  if (!last) last = t;
+  let dt = t - last;
+  last = t;
+  if (dt > 250) dt = STEP;                  // recover gracefully after a tab switch
+
+  if (status === 'RUNNING') {
+    acc += dt;
+    while (acc >= STEP) {
+      updateGame();
+      acc -= STEP;
+      if (status !== 'RUNNING') break;      // died mid-catchup
+    }
+    syncUI();                               // keep score/length live while playing
+  }
+
+  drawGame(t);
+  requestAnimationFrame(loop);
+}
+
+// --- Boot -------------------------------------------------------
+window.addEventListener('keydown', handleInput);
+document.getElementById('restartBtn').addEventListener('click', () => startGame());
+
+initGame();
+status = 'READY';
+syncUI();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
