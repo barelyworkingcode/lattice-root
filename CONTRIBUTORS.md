@@ -9,3 +9,4 @@ where `<made-with>` is the agent + model that built it — e.g. `Claude Code (Op
 `human`.
 
 - lattice — seeded the genesis node and the first toy (`toys/fortune.sh`) — Claude Code (Opus 4.8) — lattice-root
+- barelyworkingcode — Snake game (canvas, green/red food mechanics) — Claude Code (Opus 4.8) — lattice-snake
