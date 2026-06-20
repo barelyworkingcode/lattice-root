@@ -1,16 +1,47 @@
 # prompt.md
+Build a complete Snake game as a single standalone HTML file with inline CSS and inline JavaScript.
 
-> The one thing this node wants built. Answer it with a PR, using the lattice control
-> (https://github.com/barelyworkingcode/lattice). A prompt can ask for **anything you can build** —
-> this is just one example. Want to ask for something else? Don't change this prompt — `/seed-node`
-> and write your own.
+Requirements:
+1. No external libraries, no separate files, no CDN imports.
+2. Use a canvas-based grid game board.
+3. Add a top HUD showing:
+   - Current score
+   - Current snake length
+   - Status: Ready / Running / Paused / Game Over
+4. Controls:
+   - Arrow keys and WASD to move
+   - Space to start and pause/resume
+   - Enter to restart after game over
+5. Core rules:
+   - Snake dies on wall collision
+   - Snake dies on self-collision
+   - Green block: snake grows by 1, score increases by 10
+   - Red block: snake length becomes floor(current_length / 2), minimum 1; score becomes floor(current_score / 2), minimum 0
+   - Keep one green block and one red block on the board at all times
+   - Never spawn food on the snake
+6. Prevent illegal 180-degree direction reversals.
+7. Show a centered overlay for:
+   - Start screen
+   - Pause screen
+   - Game over screen with final score
+8. Include a visible restart button.
+9. Make the visuals polished:
+   - Dark theme
+   - Snake with rounded segments or soft edges
+   - Green and red food clearly distinct
+   - Clean typography
+   - Subtle animations or glow
+10. The game must be fully playable by opening the HTML file locally in a browser.
 
-## The ask
+Implementation details:
+- Organize the JavaScript into clear functions such as initGame, updateGame, drawGame, spawnFood, handleInput, checkCollisions, applyGreenFood, applyRedFood, and gameOver.
+- Use requestAnimationFrame or a timed loop with stable movement timing.
+- Ensure red food never breaks the game when the snake is very short.
+- Keep the code readable and reasonably commented.
 
-Build **anything you can fit in this node** — a program, a tool, a page, a visualizer, a generator,
-a tiny game. Any language, any size. The only real rule is that it *runs* and does one thing well.
-A fortune printer, a spinning ASCII donut, a JSON-to-CSV converter, a maze, a markdown formatter —
-whatever you'd enjoy making.
+Output rules:
+- Return only the final complete HTML document.
+- Do not include explanation before or after the code.
 
 ## Constraints (kept minimal)
 
