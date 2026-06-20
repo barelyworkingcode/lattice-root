@@ -1,0 +1,32 @@
+name: lattice — the genesis takes no PRs
+
+# The genesis node is read-only: it seeds the first prompt but accepts no contributions, so the
+# lattice spreads into the fork field instead of piling on the root. The same file rides into every
+# fork, but the job only fires on a NON-fork (the genesis). On forks repository.fork == true, so the
+# job is skipped and real nodes take PRs normally.
+
+on:
+  pull_request_target:
+    types: [opened, reopened]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  redirect-to-fork:
+    if: ${{ github.event.repository.fork == false }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Explain and close
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          sed "s/@AUTHOR/@${AUTHOR}/g" .github/no-pr-to-root.md > /tmp/body.md
+          gh pr comment "$PR" --repo "$REPO" --body-file /tmp/body.md
+          gh pr close "$PR" --repo "$REPO"
