@@ -12,9 +12,18 @@ work that answers it. Forks of this repo are nodes too.
 ## How it works
 
 A node is content; the harness is separate. You run the control, and it treats this node as
-untrusted data — reading the `prompt.md`, building the artifact in a sandbox, and PRing it back.
-That split is the whole security idea: the code you run never comes from a node. See the control's
+untrusted data — reading only the `prompt.md`, building a self-contained artifact from it, and PRing
+it back. Running the artifact in a throwaway sandbox is **optional** (and advisable). That split is
+the core security idea: the *harness* you run never comes from a node. See the control's
 [`SECURITY.md`](https://github.com/barelyworkingcode/lattice/blob/HEAD/SECURITY.md).
+
+## Run at your own risk
+
+lattice executes code — your own build, and whatever you choose to run from a node. The control's
+protections (one-file ingest, the prompt launder, the gate hook) **reduce** risk; they are **not
+airtight**, and the verify sandbox is **optional**, not automatic. If you don't fully trust a prompt
+or an artifact, run the whole loop in a container or VM. You are responsible for what runs on your
+machine. This is an experiment, provided **as-is, with no warranty** — see [LICENSE](./LICENSE).
 
 ## To play
 
